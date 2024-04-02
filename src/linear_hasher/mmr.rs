@@ -10,6 +10,8 @@ use crate::linear_hasher::params::NS_SIZE;
 use super::nmt::Nmt;
 use super::params::{NMT_ROOT_SIZE, SHARE_BYTE_LEN};
 
+// Circuit implementation of celestia blob commitment computation.
+// Official Golang implementation: https://github.com/celestiaorg/celestia-app/blob/915847191e80d836f862eea2664949d9a240abea/x/blob/types/payforblob.go#L219
 pub fn create_celestis_commitment<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     namespace_version: UInt8<F>,
@@ -46,7 +48,7 @@ fn create_celestis_shares<F: SmallField, CS: ConstraintSystem<F>>(
     for (i, data) in normalized_data.chunks(data_size).enumerate() {
         // Build share
         // first share: namespace_version (1-byte) || namespace_id (28-byte) || info_byte (1-byte) || sequence_len (4-byte) || data || padding with 0s until 512 bytes
-        // first share: namespace_version (1-byte) || namespace_id (28-byte) || info_byte (1-byte) || data || padding with 0s until 512 bytes
+        // remaining share: namespace_version (1-byte) || namespace_id (28-byte) || info_byte (1-byte) || data || padding with 0s until 512 bytes
         let mut share = vec![];
         share.push(namespace_version);
         share.extend(namespace_id);
