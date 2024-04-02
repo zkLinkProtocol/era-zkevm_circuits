@@ -1,5 +1,8 @@
+use boojum::gadgets::boolean::Boolean;
 use boojum::gadgets::sha256::SHA256_DIGEST_SIZE;
 use boojum::gadgets::traits::allocatable::CSAllocatable;
+use boojum::gadgets::traits::selectable::Selectable;
+use boojum::gadgets::traits::witnessable::CSWitnessable;
 use boojum::{cs::traits::cs::ConstraintSystem, field::SmallField, gadgets::u8::UInt8};
 
 use crate::linear_hasher::params::NS_SIZE;
@@ -9,10 +12,10 @@ use super::params::{NMT_ROOT_SIZE, SHARE_BYTE_LEN};
 
 pub fn create_celestis_commitment<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    namespace_version: u8,
-    namespace_id: &[u8],
+    namespace_version: UInt8<F>,
+    namespace_id: &[UInt8<F>],
     data: Vec<UInt8<F>>,
-    share_version: u8,
+    share_version: UInt8<F>,
 ) -> [UInt8<F>; SHA256_DIGEST_SIZE] {
     let shares = create_celestis_shares(cs, namespace_version, namespace_id, data, share_version);
     compute_mmr_root(cs, shares)
@@ -20,16 +23,15 @@ pub fn create_celestis_commitment<F: SmallField, CS: ConstraintSystem<F>>(
 
 fn create_celestis_shares<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    namespace_version: u8,
-    namespace_id: &[u8],
+    namespace_version: UInt8<F>,
+    namespace_id: &[UInt8<F>],
     mut data: Vec<UInt8<F>>,
-    share_version: u8,
+    share_version: UInt8<F>,
 ) -> Vec<[UInt8<F>; SHARE_BYTE_LEN]> {
     // assert_eq!(namespace_id.len(), NAMESPACE_ID_LEN);
     // assert_eq!(data.len(), DATA_BYTES_LEN);
 
     let mut normalized_data = vec![];
-    // TODO:
     normalized_data.extend(
         (data.len() as u32)
             .to_be_bytes()
@@ -46,14 +48,10 @@ fn create_celestis_shares<F: SmallField, CS: ConstraintSystem<F>>(
         // first share: namespace_version (1-byte) || namespace_id (28-byte) || info_byte (1-byte) || sequence_len (4-byte) || data || padding with 0s until 512 bytes
         // first share: namespace_version (1-byte) || namespace_id (28-byte) || info_byte (1-byte) || data || padding with 0s until 512 bytes
         let mut share = vec![];
-        share.push(UInt8::allocate(cs, namespace_version));
-        share.extend(
-            namespace_id
-                .iter()
-                .map(|b| UInt8::allocate(cs, *b))
-                .collect::<Vec<_>>(),
-        );
-        share.push(new_info_byte(cs, share_version, i == 0));
+        share.push(namespace_version);
+        share.extend(namespace_id);
+        let is_first_share = Boolean::allocated_constant(cs, i == 0);
+        share.push(new_info_byte(cs, share_version, is_first_share));
         share.extend(data);
         share.resize(SHARE_BYTE_LEN, UInt8::allocate_constant(cs, 0));
         shares.push(share.try_into().unwrap());
@@ -63,12 +61,13 @@ fn create_celestis_shares<F: SmallField, CS: ConstraintSystem<F>>(
 
 fn new_info_byte<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    version: u8,
-    is_first_share: bool,
+    version: UInt8<F>,
+    is_first_share: Boolean<F>,
 ) -> UInt8<F> {
-    let prefix = version << 1;
-    let byte = if is_first_share { prefix + 1 } else { prefix };
-    UInt8::allocate(cs, byte)
+    let prefix = version.add_no_overflow(cs, version);
+    let one = UInt8::allocated_constant(cs, 1);
+    let prefix_add_one = prefix.add_no_overflow(cs, one);
+    UInt8::conditionally_select(cs, is_first_share, &prefix_add_one, &prefix)
 }
 
 /// Compute root of merkle mountaint range
@@ -226,4 +225,45 @@ fn get_split_point(len: usize) -> usize {
         k >>= 1
     }
     k
+}
+
+#[cfg(test)]
+mod tests {
+    use boojum::{
+        cs::traits::cs::ConstraintSystem,
+        field::SmallField,
+        gadgets::{traits::witnessable::CSWitnessable, u8::UInt8},
+    };
+
+    use crate::linear_hasher::{
+        mmr::create_celestis_commitment, nmt::tests::create_test_cs, params::NAMESPACE_ID,
+    };
+
+    #[test]
+    fn test_celestia_create_commitment2() {
+        let cs = &mut create_test_cs();
+
+        let share_version = UInt8::allocated_constant(cs, 0);
+        let namespace_id = hex::decode("00000000000000000000000000000000000001010101010101010101")
+            .unwrap()
+            .iter()
+            .map(|b| UInt8::allocated_constant(cs, *b))
+            .collect::<Vec<_>>();
+        let namespace_version = UInt8::allocated_constant(cs, 0);
+        let data = [0xff; 3 * 512]
+            .iter()
+            .map(|b| UInt8::allocated_constant(cs, *b))
+            .collect::<Vec<_>>();
+
+        let commitment =
+            create_celestis_commitment(cs, namespace_version, &namespace_id, data, share_version);
+        let commitment = commitment
+            .iter()
+            .map(|b| b.get_witness(cs).wait().unwrap())
+            .collect::<Vec<_>>();
+        let expected_commitment =
+            hex::decode("3b9e78b6648ec1a241925b31da2ecb50bfc6f4ad552d3279928ca13ebeba8c2b")
+                .unwrap();
+        assert_eq!(commitment, expected_commitment);
+    }
 }

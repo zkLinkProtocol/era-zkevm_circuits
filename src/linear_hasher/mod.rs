@@ -198,8 +198,16 @@ where
     // Padding data
     let zero_byte = UInt8::allocate_constant(cs, 0);
     buffer.extend(vec![zero_byte; DATA_BYTES_LEN - buffer.len()]);
+
+    let share_version = UInt8::allocated_constant(cs, SHARE_VERSION);
+    let namespace_id = NAMESPACE_ID
+        .iter()
+        .map(|b| UInt8::allocate(cs, *b))
+        .collect::<Vec<_>>();
+    let namespace_version = UInt8::allocated_constant(cs, NAMESPACE_VERSION);
+
     let keccak256_hash =
-        create_celestis_commitment(cs, NAMESPACE_VERSION, &NAMESPACE_ID, buffer, SHARE_VERSION);
+        create_celestis_commitment(cs, namespace_version, &namespace_id, buffer, share_version);
 
     let keccak256_hash =
         <[UInt8<F>; 32]>::conditionally_select(cs, no_work, &empty_hash, &keccak256_hash);

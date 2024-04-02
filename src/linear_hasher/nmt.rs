@@ -198,7 +198,7 @@ mod hasher {
         let (left_min_namespace, left_max_namespace) = get_namespace(left);
         let (right_min_namespace, right_max_namespace) = get_namespace(right);
 
-        let ignore_max_namespace = true;
+        // Here ignore_max_namespace is true
         let is_equal_precomputed_max_namespace = {
             let precomputed_max_namespace =
                 vec![UInt8::allocated_constant(cs, 0xff); NAMESPACE_LEN];
@@ -239,7 +239,7 @@ mod hasher {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use crate::linear_hasher::params::NAMESPACE_ID_LEN;
     use crate::linear_hasher::params::NAMESPACE_LEN;
 
