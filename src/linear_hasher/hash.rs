@@ -59,9 +59,7 @@ pub fn hash_node<F: SmallField, CS: ConstraintSystem<F>>(
     ) -> ([UInt8<F>; NAMESPACE_LEN], [UInt8<F>; NAMESPACE_LEN]) {
         (
             root[..NAMESPACE_LEN].try_into().unwrap(),
-            root[NAMESPACE_LEN..NAMESPACE_LEN * NAMESPACE_LEN]
-                .try_into()
-                .unwrap(),
+            root[NAMESPACE_LEN..NAMESPACE_LEN * 2].try_into().unwrap(),
         )
     }
     let (left_min_namespace, left_max_namespace) = get_namespace(left);
