@@ -33,7 +33,6 @@ use zkevm_opcode_defs::system_params::STORAGE_AUX_BYTE;
 
 use super::*;
 
-mod hash;
 pub mod input;
 mod mmr;
 mod nmt;
