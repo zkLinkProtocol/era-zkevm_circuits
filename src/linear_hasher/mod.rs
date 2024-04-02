@@ -7,6 +7,10 @@ use crate::demux_log_queue::StorageLogQueue;
 use crate::ethereum_types::U256;
 use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
 use crate::keccak256_round_function::keccak256_absorb_and_run_permutation;
+use crate::linear_hasher::mmr::create_celestis_commitment;
+use crate::linear_hasher::params::{
+    DATA_ARRAY_LEN, DATA_BYTES_LEN, NAMESPACE_ID, NAMESPACE_VERSION, SHARE_VERSION,
+};
 use boojum::algebraic_props::round_function::AlgebraicRoundFunction;
 use boojum::config::*;
 use boojum::cs::traits::cs::{ConstraintSystem, DstBuffer};
@@ -29,7 +33,11 @@ use zkevm_opcode_defs::system_params::STORAGE_AUX_BYTE;
 
 use super::*;
 
+mod hash;
 pub mod input;
+mod mmr;
+mod nmt;
+mod params;
 use self::input::*;
 
 pub fn linear_hasher_entry_point<
@@ -177,16 +185,22 @@ where
     let fsm_output = ();
     structured_input.hidden_fsm_output = fsm_output;
 
-    // squeeze
-    let mut keccak256_hash = [MaybeUninit::<UInt8<F>>::uninit(); keccak256::KECCAK256_DIGEST_SIZE];
-    for (i, dst) in keccak256_hash.array_chunks_mut::<8>().enumerate() {
-        for (dst, src) in dst.iter_mut().zip(keccak_accumulator_state[i][0].iter()) {
-            let tmp = unsafe { UInt8::from_variable_unchecked(*src) };
-            dst.write(tmp);
-        }
-    }
+    // // squeeze
+    // let mut keccak256_hash = [MaybeUninit::<UInt8<F>>::uninit(); keccak256::KECCAK256_DIGEST_SIZE];
+    // for (i, dst) in keccak256_hash.array_chunks_mut::<8>().enumerate() {
+    //     for (dst, src) in dst.iter_mut().zip(keccak_accumulator_state[i][0].iter()) {
+    //         let tmp = unsafe { UInt8::from_variable_unchecked(*src) };
+    //         dst.write(tmp);
+    //     }
+    // }
+    //
+    // let keccak256_hash = unsafe { keccak256_hash.map(|el| el.assume_init()) };
 
-    let keccak256_hash = unsafe { keccak256_hash.map(|el| el.assume_init()) };
+    // Padding data
+    let zero_byte = UInt8::allocate_constant(cs, 0);
+    buffer.extend(vec![zero_byte; DATA_BYTES_LEN - buffer.len()]);
+    let keccak256_hash =
+        create_celestis_commitment(cs, NAMESPACE_VERSION, &NAMESPACE_ID, buffer, SHARE_VERSION);
 
     let keccak256_hash =
         <[UInt8<F>; 32]>::conditionally_select(cs, no_work, &empty_hash, &keccak256_hash);
