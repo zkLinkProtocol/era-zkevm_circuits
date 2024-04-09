@@ -36,7 +36,7 @@ use super::*;
 pub mod input;
 mod mmr;
 mod nmt;
-mod params;
+pub mod params;
 use self::input::*;
 
 pub fn linear_hasher_entry_point<
@@ -196,8 +196,9 @@ where
     // let keccak256_hash = unsafe { keccak256_hash.map(|el| el.assume_init()) };
 
     // Padding data
+    assert!(buffer.len() <= DATA_BYTES_LEN);
     let zero_byte = UInt8::allocate_constant(cs, 0);
-    buffer.extend(vec![zero_byte; DATA_BYTES_LEN - buffer.len()]);
+    buffer.resize(DATA_BYTES_LEN, zero_byte);
 
     let share_version = UInt8::allocated_constant(cs, SHARE_VERSION);
     let namespace_id = NAMESPACE_ID
