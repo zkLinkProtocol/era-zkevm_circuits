@@ -120,58 +120,58 @@ where
         use crate::base_structures::ByteSerializable;
         let as_bytes = storage_log.into_bytes(cs);
 
-        assert!(buffer.len() < 136);
+        // assert!(buffer.len() < 136);
 
         buffer.extend(as_bytes);
 
-        let continue_to_absorb = done.negated(cs);
-
-        if buffer.len() >= 136 {
-            let buffer_for_round: [UInt8<F>; KECCAK_RATE_BYTES] = buffer[..136].try_into().unwrap();
-            let buffer_for_round = buffer_for_round.map(|el| el.get_variable());
-            let carry_on = buffer[136..].to_vec();
-
-            buffer = carry_on;
-
-            // absorb if we are not done yet
-            keccak256_conditionally_absorb_and_run_permutation(
-                cs,
-                continue_to_absorb,
-                &mut keccak_accumulator_state,
-                &buffer_for_round,
-            );
-        }
-
-        assert!(buffer.len() < 136);
-
-        // in case if we do last round
-        {
-            let absorb_as_last_round =
-                Boolean::multi_and(cs, &[continue_to_absorb, is_last_serialization]);
-            let mut last_round_buffer = [zero_u8; KECCAK_RATE_BYTES];
-            let tail_len = buffer.len();
-            last_round_buffer[..tail_len].copy_from_slice(&buffer);
-
-            if tail_len == KECCAK_RATE_BYTES - 1 {
-                // unreachable, but we set it for completeness
-                last_round_buffer[tail_len] = UInt8::allocated_constant(cs, 0x81);
-            } else {
-                last_round_buffer[tail_len] = UInt8::allocated_constant(cs, 0x01);
-                last_round_buffer[KECCAK_RATE_BYTES - 1] = UInt8::allocated_constant(cs, 0x80);
-            }
-
-            let last_round_buffer = last_round_buffer.map(|el| el.get_variable());
-
-            // absorb if it's the last round
-            keccak256_conditionally_absorb_and_run_permutation(
-                cs,
-                absorb_as_last_round,
-                &mut keccak_accumulator_state,
-                &last_round_buffer,
-            );
-        }
-
-        done = Boolean::multi_or(cs, &[done, is_last_serialization]);
+        // let continue_to_absorb = done.negated(cs);
+        //
+        // if buffer.len() >= 136 {
+        //     let buffer_for_round: [UInt8<F>; KECCAK_RATE_BYTES] = buffer[..136].try_into().unwrap();
+        //     let buffer_for_round = buffer_for_round.map(|el| el.get_variable());
+        //     let carry_on = buffer[136..].to_vec();
+        //
+        //     buffer = carry_on;
+        //
+        //     // absorb if we are not done yet
+        //     keccak256_conditionally_absorb_and_run_permutation(
+        //         cs,
+        //         continue_to_absorb,
+        //         &mut keccak_accumulator_state,
+        //         &buffer_for_round,
+        //     );
+        // }
+        //
+        // assert!(buffer.len() < 136);
+        //
+        // // in case if we do last round
+        // {
+        //     let absorb_as_last_round =
+        //         Boolean::multi_and(cs, &[continue_to_absorb, is_last_serialization]);
+        //     let mut last_round_buffer = [zero_u8; KECCAK_RATE_BYTES];
+        //     let tail_len = buffer.len();
+        //     last_round_buffer[..tail_len].copy_from_slice(&buffer);
+        //
+        //     if tail_len == KECCAK_RATE_BYTES - 1 {
+        //         // unreachable, but we set it for completeness
+        //         last_round_buffer[tail_len] = UInt8::allocated_constant(cs, 0x81);
+        //     } else {
+        //         last_round_buffer[tail_len] = UInt8::allocated_constant(cs, 0x01);
+        //         last_round_buffer[KECCAK_RATE_BYTES - 1] = UInt8::allocated_constant(cs, 0x80);
+        //     }
+        //
+        //     let last_round_buffer = last_round_buffer.map(|el| el.get_variable());
+        //
+        //     // absorb if it's the last round
+        //     keccak256_conditionally_absorb_and_run_permutation(
+        //         cs,
+        //         absorb_as_last_round,
+        //         &mut keccak_accumulator_state,
+        //         &last_round_buffer,
+        //     );
+        // }
+        //
+        // done = Boolean::multi_or(cs, &[done, is_last_serialization]);
     }
 
     queue.enforce_consistency(cs);
