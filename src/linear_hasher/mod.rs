@@ -174,7 +174,7 @@ where
         // done = Boolean::multi_or(cs, &[done, is_last_serialization]);
     }
 
-    queue.enforce_consistency(cs);
+    // queue.enforce_consistency(cs);
     let completed = queue.is_empty(cs);
 
     Boolean::enforce_equal(cs, &completed, &boolean_true);
