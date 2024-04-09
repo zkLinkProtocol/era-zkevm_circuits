@@ -8,7 +8,7 @@ use boojum::{cs::traits::cs::ConstraintSystem, field::SmallField, gadgets::u8::U
 use crate::linear_hasher::params::NS_SIZE;
 
 use super::nmt::Nmt;
-use super::params::{NMT_ROOT_SIZE, SHARE_BYTE_LEN};
+use super::params::{NMT_ROOT_SIZE, SHARE_BYTES_LEN};
 
 // Circuit implementation of celestia blob commitment computation.
 // Official Golang implementation: https://github.com/celestiaorg/celestia-app/blob/915847191e80d836f862eea2664949d9a240abea/x/blob/types/payforblob.go#L219
@@ -29,7 +29,7 @@ fn create_celestis_shares<F: SmallField, CS: ConstraintSystem<F>>(
     namespace_id: &[UInt8<F>],
     mut data: Vec<UInt8<F>>,
     share_version: UInt8<F>,
-) -> Vec<[UInt8<F>; SHARE_BYTE_LEN]> {
+) -> Vec<[UInt8<F>; SHARE_BYTES_LEN]> {
     // assert_eq!(namespace_id.len(), NAMESPACE_ID_LEN);
     // assert_eq!(data.len(), DATA_BYTES_LEN);
 
@@ -55,7 +55,7 @@ fn create_celestis_shares<F: SmallField, CS: ConstraintSystem<F>>(
         let is_first_share = Boolean::allocated_constant(cs, i == 0);
         share.push(new_info_byte(cs, share_version, is_first_share));
         share.extend(data);
-        share.resize(SHARE_BYTE_LEN, UInt8::allocate_constant(cs, 0));
+        share.resize(SHARE_BYTES_LEN, UInt8::allocate_constant(cs, 0));
         shares.push(share.try_into().unwrap());
     }
     shares
@@ -75,7 +75,7 @@ fn new_info_byte<F: SmallField, CS: ConstraintSystem<F>>(
 /// Compute root of merkle mountaint range
 fn compute_mmr_root<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    shares: Vec<[UInt8<F>; SHARE_BYTE_LEN]>,
+    shares: Vec<[UInt8<F>; SHARE_BYTES_LEN]>,
 ) -> [UInt8<F>; SHA256_DIGEST_SIZE] {
     const SUBTREE_ROOT_THRESHOLD: usize = 64;
     let shares_len = shares.len();

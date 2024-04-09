@@ -9,7 +9,7 @@ use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
 use crate::keccak256_round_function::keccak256_absorb_and_run_permutation;
 use crate::linear_hasher::mmr::create_celestis_commitment;
 use crate::linear_hasher::params::{
-    DATA_ARRAY_LEN, DATA_BYTES_LEN, NAMESPACE_ID, NAMESPACE_VERSION, SHARE_VERSION,
+    DATA_ARRAY_COUNT, DATA_BYTES_LEN, NAMESPACE_ID, NAMESPACE_VERSION, SHARE_VERSION,
 };
 use boojum::algebraic_props::round_function::AlgebraicRoundFunction;
 use boojum::config::*;

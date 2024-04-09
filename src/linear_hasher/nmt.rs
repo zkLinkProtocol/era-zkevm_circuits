@@ -142,7 +142,7 @@ mod hasher {
         },
     };
 
-    use crate::linear_hasher::params::{NAMESPACE_LEN, NMT_ROOT_SIZE};
+    use crate::linear_hasher::params::{NAMESPACE_BYTES_LEN, NMT_ROOT_SIZE};
 
     pub fn sha256<F: SmallField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
@@ -154,7 +154,7 @@ mod hasher {
     pub fn empty_root<F: SmallField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
     ) -> [UInt8<F>; NMT_ROOT_SIZE] {
-        let empty_namespace = vec![UInt8::zero(cs); NAMESPACE_LEN];
+        let empty_namespace = vec![UInt8::zero(cs); NAMESPACE_BYTES_LEN];
         let hash = sha256(cs, &empty_namespace);
         let mut root = vec![];
         root.extend(&empty_namespace);
@@ -175,7 +175,7 @@ mod hasher {
             data.extend(node);
             sha256(cs, &data)
         };
-        let namespace_id = &node[..NAMESPACE_LEN];
+        let namespace_id = &node[..NAMESPACE_BYTES_LEN];
         let mut res = vec![];
         res.extend(namespace_id);
         res.extend(namespace_id);
@@ -189,10 +189,15 @@ mod hasher {
     ) -> [UInt8<F>; NMT_ROOT_SIZE] {
         fn get_namespace<F: SmallField>(
             root: &[UInt8<F>],
-        ) -> ([UInt8<F>; NAMESPACE_LEN], [UInt8<F>; NAMESPACE_LEN]) {
+        ) -> (
+            [UInt8<F>; NAMESPACE_BYTES_LEN],
+            [UInt8<F>; NAMESPACE_BYTES_LEN],
+        ) {
             (
-                root[..NAMESPACE_LEN].try_into().unwrap(),
-                root[NAMESPACE_LEN..NAMESPACE_LEN * 2].try_into().unwrap(),
+                root[..NAMESPACE_BYTES_LEN].try_into().unwrap(),
+                root[NAMESPACE_BYTES_LEN..NAMESPACE_BYTES_LEN * 2]
+                    .try_into()
+                    .unwrap(),
             )
         }
         let (left_min_namespace, left_max_namespace) = get_namespace(left);
@@ -201,7 +206,7 @@ mod hasher {
         // Here ignore_max_namespace is true
         let is_equal_precomputed_max_namespace = {
             let precomputed_max_namespace =
-                vec![UInt8::allocated_constant(cs, 0xff); NAMESPACE_LEN];
+                vec![UInt8::allocated_constant(cs, 0xff); NAMESPACE_BYTES_LEN];
             assert_eq!(right_max_namespace.len(), precomputed_max_namespace.len());
             let mut is_equal = Boolean::allocated_constant(cs, true);
             precomputed_max_namespace
@@ -240,8 +245,8 @@ mod hasher {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::linear_hasher::params::NAMESPACE_ID_LEN;
-    use crate::linear_hasher::params::NAMESPACE_LEN;
+    use crate::linear_hasher::params::NAMESPACE_BYTES_LEN;
+    use crate::linear_hasher::params::NAMESPACE_ID_BYTES_LEN;
 
     use super::Nmt;
 
@@ -366,10 +371,10 @@ pub mod tests {
     fn test_root() {
         let cs = &mut create_test_cs();
         let mut nmt = Nmt::new();
-        nmt.push_from_witness(cs, &[0x00; NAMESPACE_LEN], "leaf_0".as_bytes());
-        nmt.push_from_witness(cs, &[0x00; NAMESPACE_LEN], "leaf_1".as_bytes());
-        nmt.push_from_witness(cs, &[0x01; NAMESPACE_LEN], "leaf_2".as_bytes());
-        nmt.push_from_witness(cs, &[0x01; NAMESPACE_LEN], "leaf_3".as_bytes());
+        nmt.push_from_witness(cs, &[0x00; NAMESPACE_BYTES_LEN], "leaf_0".as_bytes());
+        nmt.push_from_witness(cs, &[0x00; NAMESPACE_BYTES_LEN], "leaf_1".as_bytes());
+        nmt.push_from_witness(cs, &[0x01; NAMESPACE_BYTES_LEN], "leaf_2".as_bytes());
+        nmt.push_from_witness(cs, &[0x01; NAMESPACE_BYTES_LEN], "leaf_3".as_bytes());
 
         let root = nmt.root(cs);
         let root = root
