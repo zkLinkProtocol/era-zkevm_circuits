@@ -102,6 +102,8 @@ where
     use crate::storage_application::keccak256_conditionally_absorb_and_run_permutation;
     use boojum::gadgets::keccak256::KECCAK_RATE_BYTES;
 
+    println!("limit: {}", limit);
+    let mut bytes_len = 0;
     for _cycle in 0..limit {
         let queue_is_empty = queue.is_empty(cs);
         let should_pop = queue_is_empty.negated(cs);
@@ -116,6 +118,7 @@ where
         assert!(buffer.len() < 136);
 
         buffer.extend(as_bytes);
+        bytes_len += as_bytes.len();
 
         let continue_to_absorb = done.negated(cs);
 
@@ -166,8 +169,9 @@ where
 
         done = Boolean::multi_or(cs, &[done, is_last_serialization]);
     }
+    println!("bytes_len: {}", bytes_len);
 
-    queue.enforce_consistency(cs);
+    // queue.enforce_consistency(cs);
     let completed = queue.is_empty(cs);
 
     Boolean::enforce_equal(cs, &completed, &boolean_true);
