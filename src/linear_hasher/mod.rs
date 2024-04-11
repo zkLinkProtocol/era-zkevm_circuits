@@ -7,6 +7,10 @@ use crate::demux_log_queue::StorageLogQueue;
 use crate::ethereum_types::U256;
 use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
 use crate::keccak256_round_function::keccak256_absorb_and_run_permutation;
+use crate::linear_hasher::mmr::create_celestis_commitment;
+use crate::linear_hasher::params::{
+    DATA_ARRAY_COUNT, DATA_BYTES_LEN, NAMESPACE_ID, NAMESPACE_VERSION, SHARE_VERSION,
+};
 use boojum::algebraic_props::round_function::AlgebraicRoundFunction;
 use boojum::config::*;
 use boojum::cs::traits::cs::{ConstraintSystem, DstBuffer};
@@ -30,6 +34,9 @@ use zkevm_opcode_defs::system_params::STORAGE_AUX_BYTE;
 use super::*;
 
 pub mod input;
+mod mmr;
+mod nmt;
+pub mod params;
 use self::input::*;
 
 pub fn linear_hasher_entry_point<
@@ -113,61 +120,61 @@ where
         use crate::base_structures::ByteSerializable;
         let as_bytes = storage_log.into_bytes(cs);
 
-        assert!(buffer.len() < 136);
+        // assert!(buffer.len() < 136);
 
         buffer.extend(as_bytes);
 
-        let continue_to_absorb = done.negated(cs);
-
-        if buffer.len() >= 136 {
-            let buffer_for_round: [UInt8<F>; KECCAK_RATE_BYTES] = buffer[..136].try_into().unwrap();
-            let buffer_for_round = buffer_for_round.map(|el| el.get_variable());
-            let carry_on = buffer[136..].to_vec();
-
-            buffer = carry_on;
-
-            // absorb if we are not done yet
-            keccak256_conditionally_absorb_and_run_permutation(
-                cs,
-                continue_to_absorb,
-                &mut keccak_accumulator_state,
-                &buffer_for_round,
-            );
-        }
-
-        assert!(buffer.len() < 136);
-
-        // in case if we do last round
-        {
-            let absorb_as_last_round =
-                Boolean::multi_and(cs, &[continue_to_absorb, is_last_serialization]);
-            let mut last_round_buffer = [zero_u8; KECCAK_RATE_BYTES];
-            let tail_len = buffer.len();
-            last_round_buffer[..tail_len].copy_from_slice(&buffer);
-
-            if tail_len == KECCAK_RATE_BYTES - 1 {
-                // unreachable, but we set it for completeness
-                last_round_buffer[tail_len] = UInt8::allocated_constant(cs, 0x81);
-            } else {
-                last_round_buffer[tail_len] = UInt8::allocated_constant(cs, 0x01);
-                last_round_buffer[KECCAK_RATE_BYTES - 1] = UInt8::allocated_constant(cs, 0x80);
-            }
-
-            let last_round_buffer = last_round_buffer.map(|el| el.get_variable());
-
-            // absorb if it's the last round
-            keccak256_conditionally_absorb_and_run_permutation(
-                cs,
-                absorb_as_last_round,
-                &mut keccak_accumulator_state,
-                &last_round_buffer,
-            );
-        }
-
-        done = Boolean::multi_or(cs, &[done, is_last_serialization]);
+        // let continue_to_absorb = done.negated(cs);
+        //
+        // if buffer.len() >= 136 {
+        //     let buffer_for_round: [UInt8<F>; KECCAK_RATE_BYTES] = buffer[..136].try_into().unwrap();
+        //     let buffer_for_round = buffer_for_round.map(|el| el.get_variable());
+        //     let carry_on = buffer[136..].to_vec();
+        //
+        //     buffer = carry_on;
+        //
+        //     // absorb if we are not done yet
+        //     keccak256_conditionally_absorb_and_run_permutation(
+        //         cs,
+        //         continue_to_absorb,
+        //         &mut keccak_accumulator_state,
+        //         &buffer_for_round,
+        //     );
+        // }
+        //
+        // assert!(buffer.len() < 136);
+        //
+        // // in case if we do last round
+        // {
+        //     let absorb_as_last_round =
+        //         Boolean::multi_and(cs, &[continue_to_absorb, is_last_serialization]);
+        //     let mut last_round_buffer = [zero_u8; KECCAK_RATE_BYTES];
+        //     let tail_len = buffer.len();
+        //     last_round_buffer[..tail_len].copy_from_slice(&buffer);
+        //
+        //     if tail_len == KECCAK_RATE_BYTES - 1 {
+        //         // unreachable, but we set it for completeness
+        //         last_round_buffer[tail_len] = UInt8::allocated_constant(cs, 0x81);
+        //     } else {
+        //         last_round_buffer[tail_len] = UInt8::allocated_constant(cs, 0x01);
+        //         last_round_buffer[KECCAK_RATE_BYTES - 1] = UInt8::allocated_constant(cs, 0x80);
+        //     }
+        //
+        //     let last_round_buffer = last_round_buffer.map(|el| el.get_variable());
+        //
+        //     // absorb if it's the last round
+        //     keccak256_conditionally_absorb_and_run_permutation(
+        //         cs,
+        //         absorb_as_last_round,
+        //         &mut keccak_accumulator_state,
+        //         &last_round_buffer,
+        //     );
+        // }
+        //
+        // done = Boolean::multi_or(cs, &[done, is_last_serialization]);
     }
 
-    queue.enforce_consistency(cs);
+    // queue.enforce_consistency(cs);
     let completed = queue.is_empty(cs);
 
     Boolean::enforce_equal(cs, &completed, &boolean_true);
@@ -177,16 +184,29 @@ where
     let fsm_output = ();
     structured_input.hidden_fsm_output = fsm_output;
 
-    // squeeze
-    let mut keccak256_hash = [MaybeUninit::<UInt8<F>>::uninit(); keccak256::KECCAK256_DIGEST_SIZE];
-    for (i, dst) in keccak256_hash.array_chunks_mut::<8>().enumerate() {
-        for (dst, src) in dst.iter_mut().zip(keccak_accumulator_state[i][0].iter()) {
-            let tmp = unsafe { UInt8::from_variable_unchecked(*src) };
-            dst.write(tmp);
-        }
-    }
+    // // squeeze
+    // let mut keccak256_hash = [MaybeUninit::<UInt8<F>>::uninit(); keccak256::KECCAK256_DIGEST_SIZE];
+    // for (i, dst) in keccak256_hash.array_chunks_mut::<8>().enumerate() {
+    //     for (dst, src) in dst.iter_mut().zip(keccak_accumulator_state[i][0].iter()) {
+    //         let tmp = unsafe { UInt8::from_variable_unchecked(*src) };
+    //         dst.write(tmp);
+    //     }
+    // }
+    //
+    // let keccak256_hash = unsafe { keccak256_hash.map(|el| el.assume_init()) };
 
-    let keccak256_hash = unsafe { keccak256_hash.map(|el| el.assume_init()) };
+    // Padding data
+    assert_eq!(buffer.len(), DATA_BYTES_LEN);
+
+    let share_version = UInt8::allocated_constant(cs, SHARE_VERSION);
+    let namespace_id = NAMESPACE_ID
+        .iter()
+        .map(|b| UInt8::allocate(cs, *b))
+        .collect::<Vec<_>>();
+    let namespace_version = UInt8::allocated_constant(cs, NAMESPACE_VERSION);
+
+    let keccak256_hash =
+        create_celestis_commitment(cs, namespace_version, &namespace_id, buffer, share_version);
 
     let keccak256_hash =
         <[UInt8<F>; 32]>::conditionally_select(cs, no_work, &empty_hash, &keccak256_hash);
