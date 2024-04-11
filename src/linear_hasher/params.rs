@@ -5,7 +5,7 @@ use crate::base_structures::log_query::L2_TO_L1_MESSAGE_BYTE_LENGTH;
 pub const NAMESPACE_ID_BYTES_LEN: usize = 28;
 pub const NAMESPACE_VERSION_BYTES_LEN: usize = 1;
 pub const NAMESPACE_BYTES_LEN: usize = NAMESPACE_ID_BYTES_LEN + NAMESPACE_VERSION_BYTES_LEN;
-pub const DATA_ARRAY_COUNT: usize = 1139;
+pub const DATA_ARRAY_COUNT: usize = 774;
 pub const DATA_BYTES_LEN: usize = DATA_ARRAY_COUNT * L2_TO_L1_MESSAGE_BYTE_LENGTH;
 
 pub const NAMESPACE_VERSION: u8 = 0;
