@@ -114,6 +114,7 @@ impl<F: SmallField> BlockMetaParameters<F> {
 
         result.extend_from_slice(&self.bootloader_code_hash.to_be_bytes(cs));
         result.extend_from_slice(&self.default_aa_code_hash.to_be_bytes(cs));
+        result.extend_from_slice(&self.evm_simulator_code_hash.to_be_bytes(cs));
 
         result
     }
