@@ -49,6 +49,7 @@ pub struct SchedulerCircuitInstanceWitness<
     pub keccak256_observable_output: PrecompileFunctionOutputDataWitness<F>,
     pub sha256_observable_output: PrecompileFunctionOutputDataWitness<F>,
     pub ecrecover_observable_output: PrecompileFunctionOutputDataWitness<F>,
+    pub secp256r1_verify_observable_output: PrecompileFunctionOutputDataWitness<F>,
     // RAM permutation doesn't produce anything
     pub storage_sorter_observable_output: StorageDeduplicatorOutputDataWitness<F>,
     pub storage_application_observable_output: StorageApplicationOutputDataWitness<F>,
@@ -103,6 +104,8 @@ impl<F: SmallField, H: RecursiveTreeHasher<F, Num<F>>, EXT: FieldExtension<2, Ba
             keccak256_observable_output: PrecompileFunctionOutputData::placeholder_witness(),
             sha256_observable_output: PrecompileFunctionOutputData::placeholder_witness(),
             ecrecover_observable_output: PrecompileFunctionOutputData::placeholder_witness(),
+            secp256r1_verify_observable_output: PrecompileFunctionOutputData::placeholder_witness(),
+
             storage_sorter_observable_output: StorageDeduplicatorOutputData::placeholder_witness(),
             storage_application_observable_output:
                 StorageApplicationOutputData::placeholder_witness(),

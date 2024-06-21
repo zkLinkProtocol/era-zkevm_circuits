@@ -90,6 +90,7 @@ pub const SEQUENCE_OF_CIRCUIT_TYPES: [BaseLayerCircuitType; NUM_CIRCUIT_TYPES_TO
     BaseLayerCircuitType::EventsRevertsFilter,
     BaseLayerCircuitType::L1MessagesRevertsFilter,
     BaseLayerCircuitType::L1MessagesHasher,
+    BaseLayerCircuitType::Secp256r1Verify,
 ];
 
 #[derive(Derivative, serde::Serialize, serde::Deserialize)]
@@ -195,6 +196,9 @@ pub fn scheduler_function<
 
     let ecrecover_observable_output =
         PrecompileFunctionOutputData::allocate(cs, witness.ecrecover_observable_output.clone());
+
+    let secp256r1_verify_observable_output =
+        PrecompileFunctionOutputData::allocate(cs, witness.secp256r1_verify_observable_output.clone());
 
     let storage_sorter_observable_output = StorageDeduplicatorOutputData::allocate(
         cs,
@@ -332,6 +336,16 @@ pub fn scheduler_function<
         &ecrecover_observable_output.final_memory_state,
         round_function,
     );
+    let (
+        secp256r1_verify_circuit_observable_input_commitment,
+        secp256r1_verify_circuit_observable_output_commitment,
+    ) = compute_precompile_commitment(
+        cs,
+        &log_demuxer_observable_output.secp256r1_access_queue_state,
+        &ecrecover_observable_output.final_memory_state,
+        &secp256r1_verify_observable_output.final_memory_state,
+        round_function,
+    );
 
     // ram permutation and validation
     // NBL this circuit is terminal - it has no actual output
@@ -341,7 +355,7 @@ pub fn scheduler_function<
         QueueTailState::allocate(cs, witness.ram_sorted_queue_state.clone());
 
     let ram_validation_circuit_input = RamPermutationInputData {
-        unsorted_queue_initial_state: ecrecover_observable_output.final_memory_state,
+        unsorted_queue_initial_state: secp256r1_verify_observable_output.final_memory_state,
         sorted_queue_initial_state: ram_sorted_queue_state,
         non_deterministic_bootloader_memory_snapshot_length: bootloader_heap_memory_state.length,
     };
@@ -507,6 +521,10 @@ pub fn scheduler_function<
                     BaseLayerCircuitType::L1MessagesHasher,
                     l1_messages_hasher_input_com,
                 ),
+                (
+                    BaseLayerCircuitType::Secp256r1Verify,
+                    secp256r1_verify_circuit_observable_input_commitment,
+                ),
             ]
             .into_iter(),
         );
@@ -562,6 +580,10 @@ pub fn scheduler_function<
                 (
                     BaseLayerCircuitType::L1MessagesHasher,
                     l1_messages_hasher_output_com,
+                ),
+                (
+                    BaseLayerCircuitType::Secp256r1Verify,
+                    secp256r1_verify_circuit_observable_output_commitment,
                 ),
             ]
             .into_iter(),
@@ -678,6 +700,21 @@ pub fn scheduler_function<
 
         skip_flags[(BaseLayerCircuitType::EcrecoverPrecompile as u8 as usize) - 1] =
             Some(should_skip);
+    }
+    {
+        let should_skip = log_demuxer_observable_output
+            .secp256r1_access_queue_state
+            .tail
+            .length
+            .is_zero(cs);
+
+        let input_state = ecrecover_observable_output.final_memory_state;
+        let output_state = secp256r1_verify_observable_output.final_memory_state;
+
+        let same_state = is_equal_queue_state(cs, &input_state, &output_state);
+        same_state.conditionally_enforce_true(cs, should_skip);
+
+        skip_flags[(BaseLayerCircuitType::Secp256r1Verify as u8 as usize) - 1] = Some(should_skip);
     }
 
     // well, in the very unlikely case of no RAM requests (that is unreachable because VM always starts) we just skip it as is
