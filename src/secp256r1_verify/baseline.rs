@@ -285,9 +285,7 @@ where
 
     let precompile_address = UInt160::allocated_constant(
         cs,
-        // TODO: zklink fix
-        Default::default(),
-        // *zkevm_opcode_defs::system_params::SECP256R1_VERIFY_INNER_FUNCTION_PRECOMPILE_FORMAL_ADDRESS,
+        *zkevm_opcode_defs::system_params::SECP256R1_VERIFY_INNER_FUNCTION_PRECOMPILE_FORMAL_ADDRESS,
     );
     let aux_byte_for_precompile = UInt8::allocated_constant(cs, PRECOMPILE_AUX_BYTE);
 

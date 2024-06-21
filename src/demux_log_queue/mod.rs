@@ -268,9 +268,7 @@ pub fn demultiplex_storage_logs_inner<
     );
     let secp256r1_precompile_address = UInt160::allocated_constant(
         cs,
-        // TODO: zklink add precompile address
-        Default::default(),
-        // *zkevm_opcode_defs::system_params::SECP256R1_INNER_FUNCTION_PRECOMPILE_FORMAL_ADDRESS,
+        *zkevm_opcode_defs::system_params::SECP256R1_VERIFY_INNER_FUNCTION_PRECOMPILE_FORMAL_ADDRESS,
     );
 
     // we have 6 queues to demux into, and up to 3 sponges per any push
