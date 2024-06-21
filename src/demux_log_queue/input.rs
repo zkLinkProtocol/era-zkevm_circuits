@@ -16,7 +16,7 @@ use boojum::gadgets::{
 use cs_derive::*;
 use derivative::*;
 
-pub const NUM_OUTPUT_QUEUES: usize = 6;
+pub const NUM_OUTPUT_QUEUES: usize = 7;
 
 #[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable)]
 #[derivative(Clone, Copy, Debug)]
@@ -29,6 +29,7 @@ pub struct LogDemuxerFSMInputOutput<F: SmallField> {
     pub keccak256_access_queue_state: QueueState<F, QUEUE_STATE_WIDTH>,
     pub sha256_access_queue_state: QueueState<F, QUEUE_STATE_WIDTH>,
     pub ecrecover_access_queue_state: QueueState<F, QUEUE_STATE_WIDTH>,
+    pub secp256r1_access_queue_state: QueueState<F, QUEUE_STATE_WIDTH>,
 }
 
 impl<F: SmallField> CSPlaceholder<F> for LogDemuxerFSMInputOutput<F> {
@@ -41,6 +42,7 @@ impl<F: SmallField> CSPlaceholder<F> for LogDemuxerFSMInputOutput<F> {
             keccak256_access_queue_state: QueueState::<F, QUEUE_STATE_WIDTH>::placeholder(cs),
             sha256_access_queue_state: QueueState::<F, QUEUE_STATE_WIDTH>::placeholder(cs),
             ecrecover_access_queue_state: QueueState::<F, QUEUE_STATE_WIDTH>::placeholder(cs),
+            secp256r1_access_queue_state: QueueState::<F, QUEUE_STATE_WIDTH>::placeholder(cs),
         }
     }
 }
@@ -70,6 +72,7 @@ pub struct LogDemuxerOutputData<F: SmallField> {
     pub keccak256_access_queue_state: QueueState<F, QUEUE_STATE_WIDTH>,
     pub sha256_access_queue_state: QueueState<F, QUEUE_STATE_WIDTH>,
     pub ecrecover_access_queue_state: QueueState<F, QUEUE_STATE_WIDTH>,
+    pub secp256r1_access_queue_state: QueueState<F, QUEUE_STATE_WIDTH>,
 }
 
 impl<F: SmallField> CSPlaceholder<F> for LogDemuxerOutputData<F> {
@@ -81,6 +84,7 @@ impl<F: SmallField> CSPlaceholder<F> for LogDemuxerOutputData<F> {
             keccak256_access_queue_state: QueueState::<F, QUEUE_STATE_WIDTH>::placeholder(cs),
             sha256_access_queue_state: QueueState::<F, QUEUE_STATE_WIDTH>::placeholder(cs),
             ecrecover_access_queue_state: QueueState::<F, QUEUE_STATE_WIDTH>::placeholder(cs),
+            secp256r1_access_queue_state: QueueState::<F, QUEUE_STATE_WIDTH>::placeholder(cs),
         }
     }
 }
@@ -94,6 +98,7 @@ impl<F: SmallField> LogDemuxerOutputData<F> {
             &self.ecrecover_access_queue_state,
             &self.events_access_queue_state,
             &self.l1messages_access_queue_state,
+            &self.secp256r1_access_queue_state,
         ]
     }
 }

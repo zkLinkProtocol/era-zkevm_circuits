@@ -87,10 +87,11 @@ where
         &structured_input
             .hidden_fsm_input
             .ecrecover_access_queue_state,
+        &structured_input.hidden_fsm_input.secp256r1_access_queue_state,
     ];
 
     let empty_state = QueueState::empty(cs);
-    let [mut storage_access_queue, mut events_access_queue, mut l1messages_access_queue, mut keccak256_access_queue, mut sha256_access_queue, mut ecrecover_access_queue] =
+    let [mut storage_access_queue, mut events_access_queue, mut l1messages_access_queue, mut keccak256_access_queue, mut sha256_access_queue, mut ecrecover_access_queue, mut secp256r1_access_queue] =
         queue_states_from_fsm.map(|el| {
             let state = QueueState::conditionally_select(
                 cs,
@@ -108,6 +109,7 @@ where
         &mut keccak256_access_queue,
         &mut sha256_access_queue,
         &mut ecrecover_access_queue,
+        &mut secp256r1_access_queue,
     ];
 
     demultiplex_storage_logs_inner(cs, &mut initial_queue, input_queues, limit);
@@ -140,6 +142,10 @@ where
     structured_input
         .hidden_fsm_output
         .ecrecover_access_queue_state = ecrecover_access_queue.into_state();
+
+    structured_input
+        .hidden_fsm_output
+        .secp256r1_access_queue_state = secp256r1_access_queue.into_state();
 
     // copy into observable output
     structured_input
@@ -218,7 +224,7 @@ where
     input_commitment
 }
 
-pub const NUM_SEPARATE_QUEUES: usize = 6;
+pub const NUM_SEPARATE_QUEUES: usize = 7;
 
 #[repr(u64)]
 pub enum LogType {
@@ -245,7 +251,7 @@ pub fn demultiplex_storage_logs_inner<
 {
     assert!(limit <= u32::MAX as usize);
 
-    let [rollup_storage_queue, events_queue, l1_messages_queue, keccak_calls_queue, sha256_calls_queue, ecdsa_calls_queue] =
+    let [rollup_storage_queue, events_queue, l1_messages_queue, keccak_calls_queue, sha256_calls_queue, ecdsa_calls_queue, secp256r1_calls_queue] =
         output_queues;
 
     let keccak_precompile_address = UInt160::allocated_constant(
@@ -259,6 +265,12 @@ pub fn demultiplex_storage_logs_inner<
     let ecrecover_precompile_address = UInt160::allocated_constant(
         cs,
         *zkevm_opcode_defs::system_params::ECRECOVER_INNER_FUNCTION_PRECOMPILE_FORMAL_ADDRESS,
+    );
+    let secp256r1_precompile_address = UInt160::allocated_constant(
+        cs,
+        // TODO: zklink add precompile address
+        Default::default(),
+        // *zkevm_opcode_defs::system_params::SECP256R1_INNER_FUNCTION_PRECOMPILE_FORMAL_ADDRESS,
     );
 
     // we have 6 queues to demux into, and up to 3 sponges per any push
@@ -292,6 +304,8 @@ pub fn demultiplex_storage_logs_inner<
         let is_sha256_address = UInt160::equals(cs, &sha256_precompile_address, &popped.0.address);
         let is_ecrecover_address =
             UInt160::equals(cs, &ecrecover_precompile_address, &popped.0.address);
+        let is_secp256r1_address =
+            UInt160::equals(cs, &secp256r1_precompile_address, &popped.0.address);
 
         let is_rollup_shard = popped.0.shard_id.is_zero(cs);
         let execute_rollup_storage =
@@ -311,6 +325,8 @@ pub fn demultiplex_storage_logs_inner<
             Boolean::multi_and(cs, &[is_precompile_aux_byte, is_sha256_address, execute]);
         let execute_ecrecover_call =
             Boolean::multi_and(cs, &[is_precompile_aux_byte, is_ecrecover_address, execute]);
+        let execute_secp256r1_call =
+            Boolean::multi_and(cs, &[is_precompile_aux_byte, is_secp256r1_address, execute]);
 
         // rollup_storage_queue.push_encoding_with_optimizer_without_changing_witness(
         //     cs,
@@ -362,6 +378,7 @@ pub fn demultiplex_storage_logs_inner<
             execute_keccak_call,
             execute_sha256_call,
             execute_ecrecover_call,
+            execute_secp256r1_call,
         ];
 
         push_with_optimize(
@@ -373,6 +390,7 @@ pub fn demultiplex_storage_logs_inner<
                 keccak_calls_queue,
                 sha256_calls_queue,
                 ecdsa_calls_queue,
+                secp256r1_calls_queue,
             ],
             bitmask,
             popped.0,
