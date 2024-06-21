@@ -772,49 +772,46 @@ fn wnaf_scalar_mul<F: SmallField, CS: ConstraintSystem<F>>(
     acc
 }
 
-fn fixed_base_mul<CS: ConstraintSystem<F>, F: SmallField>(
+pub(crate) fn fixed_base_mul<
+    F: SmallField,
+    CS: ConstraintSystem<F>,
+    NNS: boojum::pairing::ff::PrimeField,
+    NNB: boojum::pairing::ff::PrimeField + boojum::pairing::ff::SqrtField,
+    NNC: boojum::pairing::GenericCurveAffine<Base = NNB>,
+    const N: usize,
+>(
     cs: &mut CS,
-    mut message_hash_by_r_inv: Secp256ScalarNNField<F>,
-    base_field_params: &Arc<Secp256BaseNNFieldParams>,
-) -> SWProjectivePoint<F, Secp256Affine, Secp256BaseNNField<F>> {
-    message_hash_by_r_inv.enforce_reduced(cs);
-    let is_zero = message_hash_by_r_inv.is_zero(cs);
-    let bytes = message_hash_by_r_inv
+    mut scalar: NonNativeFieldOverU16<F, NNS, N>,
+    base_field_params: &Arc<NonNativeFieldOverU16Params<NNB, N>>,
+    scalar_canonical_limbs: usize,
+    base_canonical_limbs_canonical_limbs: usize,
+    fixed_base_table_ids: &[[u32; 8]],
+) -> SWProjectivePoint<F, NNC, NonNativeFieldOverU16<F, NNB, N>>
+    where
+        [(); N + 1]:,
+{
+    assert!(base_canonical_limbs_canonical_limbs % 2 == 0);
+    assert!(scalar_canonical_limbs % 2 == 0);
+    assert_eq!(scalar_canonical_limbs * 2, fixed_base_table_ids.len());
+    assert_eq!(base_canonical_limbs_canonical_limbs / 2, 8);
+
+    scalar.enforce_reduced(cs);
+    let is_zero = scalar.is_zero(cs);
+    let bytes = scalar
         .limbs
         .iter()
-        .take(16)
+        .take(scalar_canonical_limbs)
         .flat_map(|el| unsafe { UInt16::from_variable_unchecked(*el).to_le_bytes(cs) })
         .collect::<Vec<UInt8<F>>>();
 
     let zero_point =
-        SWProjectivePoint::<F, Secp256Affine, Secp256BaseNNField<F>>::zero(cs, base_field_params);
+        SWProjectivePoint::<F, NNC, NonNativeFieldOverU16<F, NNB, N>>::zero(cs, base_field_params);
     let mut acc =
-        SWProjectivePoint::<F, Secp256Affine, Secp256BaseNNField<F>>::zero(cs, base_field_params);
-    let mut full_table_ids = vec![];
-    seq_macro::seq!(C in 0..32 {
-        let ids = [
-            cs.get_table_id_for_marker::<FixedBaseMulTable<0, C>>()
-                .expect("table must exist"),
-            cs.get_table_id_for_marker::<FixedBaseMulTable<1, C>>()
-                .expect("table must exist"),
-            cs.get_table_id_for_marker::<FixedBaseMulTable<2, C>>()
-                .expect("table must exist"),
-            cs.get_table_id_for_marker::<FixedBaseMulTable<3, C>>()
-                .expect("table must exist"),
-            cs.get_table_id_for_marker::<FixedBaseMulTable<4, C>>()
-                .expect("table must exist"),
-            cs.get_table_id_for_marker::<FixedBaseMulTable<5, C>>()
-                .expect("table must exist"),
-            cs.get_table_id_for_marker::<FixedBaseMulTable<6, C>>()
-                .expect("table must exist"),
-            cs.get_table_id_for_marker::<FixedBaseMulTable<7, C>>()
-                .expect("table must exist"),
-        ];
-        full_table_ids.push(ids);
-    });
+        SWProjectivePoint::<F, NNC, NonNativeFieldOverU16<F, NNB, N>>::zero(cs, base_field_params);
 
-    full_table_ids
-        .into_iter()
+    fixed_base_table_ids
+        .iter()
+        .copied()
         .zip(bytes)
         .rev()
         .for_each(|(ids, byte)| {
@@ -839,13 +836,15 @@ fn fixed_base_mul<CS: ConstraintSystem<F>, F: SmallField>(
                 .into_iter()
                 .unzip();
             let zero_var = cs.allocate_constant(F::ZERO);
-            let mut x_arr = [zero_var; 17];
-            x_arr[..16].copy_from_slice(&x[..16]);
-            let mut y_arr = [zero_var; 17];
-            y_arr[..16].copy_from_slice(&y[..16]);
+            let mut x_arr = [zero_var; N];
+            x_arr[..base_canonical_limbs_canonical_limbs]
+                .copy_from_slice(&x[..base_canonical_limbs_canonical_limbs]);
+            let mut y_arr = [zero_var; N];
+            y_arr[..base_canonical_limbs_canonical_limbs]
+                .copy_from_slice(&y[..base_canonical_limbs_canonical_limbs]);
             let x = NonNativeFieldOverU16 {
                 limbs: x_arr,
-                non_zero_limbs: 16,
+                non_zero_limbs: base_canonical_limbs_canonical_limbs,
                 tracker: OverflowTracker { max_moduluses: 1 },
                 form: RepresentationForm::Normalized,
                 params: base_field_params.clone(),
@@ -853,7 +852,7 @@ fn fixed_base_mul<CS: ConstraintSystem<F>, F: SmallField>(
             };
             let y = NonNativeFieldOverU16 {
                 limbs: y_arr,
-                non_zero_limbs: 16,
+                non_zero_limbs: base_canonical_limbs_canonical_limbs,
                 tracker: OverflowTracker { max_moduluses: 1 },
                 form: RepresentationForm::Normalized,
                 params: base_field_params.clone(),
@@ -1083,9 +1082,39 @@ fn ecrecover_precompile_inner_routine<
     //     &base_field_params,
     //     &scalar_field_params,
     // );
+    let mut full_table_ids = vec![];
+    seq_macro::seq!(C in 0..32 {
+        let ids = [
+            cs.get_table_id_for_marker::<FixedBaseMulTable<0, C>>()
+                .expect("table must exist"),
+            cs.get_table_id_for_marker::<FixedBaseMulTable<1, C>>()
+                .expect("table must exist"),
+            cs.get_table_id_for_marker::<FixedBaseMulTable<2, C>>()
+                .expect("table must exist"),
+            cs.get_table_id_for_marker::<FixedBaseMulTable<3, C>>()
+                .expect("table must exist"),
+            cs.get_table_id_for_marker::<FixedBaseMulTable<4, C>>()
+                .expect("table must exist"),
+            cs.get_table_id_for_marker::<FixedBaseMulTable<5, C>>()
+                .expect("table must exist"),
+            cs.get_table_id_for_marker::<FixedBaseMulTable<6, C>>()
+                .expect("table must exist"),
+            cs.get_table_id_for_marker::<FixedBaseMulTable<7, C>>()
+                .expect("table must exist"),
+        ];
+        full_table_ids.push(ids);
+    });
 
-    let mut hash_times_g = fixed_base_mul(cs, message_hash_by_r_inv_negated, &base_field_params);
+    // let mut hash_times_g = fixed_base_mul(cs, message_hash_by_r_inv_negated, &base_field_params);
     // let mut hash_times_g = fixed_base_mul(cs, message_hash_by_r_inv, &base_field_params);
+    let mut hash_times_g = fixed_base_mul::<F, CS, Secp256Fr, Secp256Fq, Secp256Affine, 17>(
+        cs,
+        message_hash_by_r_inv_negated,
+        &base_field_params,
+        SCALAR_FIELD_CANONICAL_REPR_LIMBS,
+        BASE_FIELD_CANONICAL_REPR_LIMBS,
+        &full_table_ids,
+    );
 
     let (mut q_acc, is_infinity) =
         hash_times_g.convert_to_affine_or_default(cs, Secp256Affine::one());

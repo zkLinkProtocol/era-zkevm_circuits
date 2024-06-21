@@ -83,7 +83,7 @@ const VALID_X_CUBED_IN_EXTERNAL_FIELD: u64 = 9;
 
 // assume that constructed field element is not zero
 // if this is not satisfied - set the result to be F::one
-fn convert_uint256_to_field_element_masked<
+pub(crate) fn convert_uint256_to_field_element_masked<
     F: SmallField,
     CS: ConstraintSystem<F>,
     P: boojum::pairing::ff::PrimeField,
@@ -135,7 +135,7 @@ where
     (selected, is_zero)
 }
 
-fn convert_uint256_to_field_element<
+pub(crate) fn convert_uint256_to_field_element<
     F: SmallField,
     CS: ConstraintSystem<F>,
     P: boojum::pairing::ff::PrimeField,

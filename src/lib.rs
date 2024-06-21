@@ -28,6 +28,8 @@ pub mod ram_permutation;
 pub mod recursion;
 pub mod scheduler;
 pub mod sha256_round_function;
+pub mod secp256r1_verify;
+
 pub mod sort_decommittment_requests;
 pub mod storage_application;
 pub mod storage_validity_by_grand_product;

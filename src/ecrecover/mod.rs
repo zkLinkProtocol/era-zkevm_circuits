@@ -38,6 +38,8 @@ pub use self::input::*;
 
 pub mod secp256k1;
 
+const BASE_FIELD_CANONICAL_REPR_LIMBS: usize = 16;
+const SCALAR_FIELD_CANONICAL_REPR_LIMBS: usize = 16;
 pub const MEMORY_QUERIES_PER_CALL: usize = 4;
 
 pub mod naf_abs_div2_table;
