@@ -596,6 +596,7 @@ mod tests {
         let mut output_queue3 = StorageLogQueue::empty(cs);
         let mut output_queue4 = StorageLogQueue::empty(cs);
         let mut output_queue5 = StorageLogQueue::empty(cs);
+        let mut output_queue6 = StorageLogQueue::empty(cs);
 
         let output = [
             &mut output_queue,
@@ -604,6 +605,7 @@ mod tests {
             &mut output_queue3,
             &mut output_queue4,
             &mut output_queue5,
+            &mut output_queue6,
         ];
         let limit = 16;
         demultiplex_storage_logs_inner(cs, &mut storage_log_queue, output, limit);

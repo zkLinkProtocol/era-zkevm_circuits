@@ -1662,9 +1662,40 @@ mod test {
         let mut seed = Secp256Fr::multiplicative_generator();
         seed = seed.pow([1234]);
 
+        let mut full_table_ids = vec![];
+        seq_macro::seq!(C in 0..32 {
+            let ids = [
+                cs.get_table_id_for_marker::<FixedBaseMulTable<0, C>>()
+                    .expect("table must exist"),
+                cs.get_table_id_for_marker::<FixedBaseMulTable<1, C>>()
+                    .expect("table must exist"),
+                cs.get_table_id_for_marker::<FixedBaseMulTable<2, C>>()
+                    .expect("table must exist"),
+                cs.get_table_id_for_marker::<FixedBaseMulTable<3, C>>()
+                    .expect("table must exist"),
+                cs.get_table_id_for_marker::<FixedBaseMulTable<4, C>>()
+                    .expect("table must exist"),
+                cs.get_table_id_for_marker::<FixedBaseMulTable<5, C>>()
+                    .expect("table must exist"),
+                cs.get_table_id_for_marker::<FixedBaseMulTable<6, C>>()
+                    .expect("table must exist"),
+                cs.get_table_id_for_marker::<FixedBaseMulTable<7, C>>()
+                    .expect("table must exist"),
+            ];
+            full_table_ids.push(ids);
+        });
+
         for _i in 0..16 {
             let scalar = Secp256ScalarNNField::allocate_checked(cs, seed, &scalar_params);
-            let mut result = fixed_base_mul(cs, scalar, &base_params);
+            // let mut result = fixed_base_mul(cs, scalar, &base_params);
+            let mut result = fixed_base_mul::<GoldilocksField, _, _, _, _, 17>(
+                cs,
+                scalar,
+                &base_params,
+                16,
+                16,
+                &full_table_ids,
+            );
             let ((result_x, result_y), _) =
                 result.convert_to_affine_or_default(cs, Secp256Affine::one());
 
